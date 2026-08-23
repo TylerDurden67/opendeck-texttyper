@@ -1,0 +1,9 @@
+# Dependencies (bundled manually in release zips, not tracked in git)
+com.tylerdurden67.texttyper.sdPlugin/node_modules/
+com.tylerdurden67.texttyper.sdPlugin/package-lock.json
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.log
+.vscode/

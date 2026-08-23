@@ -1,0 +1,42 @@
+{
+	"$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
+	"Name": "Text Typer",
+	"Version": "0.0.0.1",
+	"Author": "TylerDurden67",
+	"Description": "Type text with a configurable per-character delay, an optional key press before typing (e.g. to open a game's chat), and an optional Enter at the end - all in a single reliable action.",
+	"Icon": "imgs/pluginIcon",
+	"UUID": "com.tylerdurden67.texttyper",
+	"CodePath": "bin/plugin.js",
+	"Nodejs": {
+		"Version": "20"
+	},
+	"OS": [
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		}
+	],
+	"SDKVersion": 2,
+	"Software": {
+		"MinimumVersion": "6.5"
+	},
+	"Category": "Text Typer",
+	"CategoryIcon": "imgs/categoryIcon",
+	"Actions": [
+		{
+			"Name": "Type Text",
+			"UUID": "com.tylerdurden67.texttyper.type",
+			"Icon": "imgs/actionIcon",
+			"Tooltip": "Type a text (with per-character delay), optionally press a key first, optionally press Enter at the end.",
+			"PropertyInspectorPath": "ui/inspector.html",
+			"Controllers": ["Keypad"],
+			"States": [
+				{
+					"Image": "imgs/stateImage",
+					"TitleAlignment": "bottom",
+					"FontSize": "9"
+				}
+			]
+		}
+	]
+}

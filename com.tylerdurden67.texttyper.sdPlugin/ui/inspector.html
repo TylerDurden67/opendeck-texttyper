@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<title>Text Typer</title>
+	<style>
+		html, body {
+			height: auto;
+			max-height: 100vh;
+			overflow-y: auto;
+		}
+		body {
+			font-family: -apple-system, "Segoe UI", sans-serif;
+			background: #2d2d2d;
+			color: #d8d8d8;
+			font-size: 12px;
+			margin: 0;
+			padding: 8px 12px;
+		}
+		.row {
+			display: flex;
+			align-items: flex-start;
+			border-bottom: 1px solid #3d3d3d;
+			padding: 6px 0;
+		}
+		.row label {
+			flex: 0 0 110px;
+			color: #9c9c9c;
+			padding-top: 5px;
+		}
+		.row .field {
+			flex: 1;
+			display: flex;
+			gap: 6px;
+		}
+		input[type="text"], input[type="number"], textarea {
+			flex: 1;
+			background: #1e1e1e;
+			border: 1px solid #454545;
+			color: #d8d8d8;
+			border-radius: 4px;
+			padding: 5px 7px;
+			font-size: 12px;
+			min-width: 0;
+			font-family: inherit;
+		}
+		textarea {
+			resize: vertical;
+			min-height: 40px;
+		}
+		.checkbox-row {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			padding: 6px 0;
+		}
+		.checkbox-row label {
+			color: #9c9c9c;
+		}
+		.two-col {
+			display: flex;
+			gap: 10px;
+		}
+		.two-col .row {
+			flex: 1;
+		}
+		.hint {
+			font-size: 10.5px;
+			color: #777;
+			padding: 6px 0 0 0;
+			line-height: 1.4;
+		}
+		.status {
+			font-size: 10.5px;
+			padding: 4px 0 0 0;
+			min-height: 14px;
+		}
+		.status.error { color: #e57373; }
+		.status.ok { color: #81c784; }
+		.support {
+			margin-top: 6px;
+			padding-top: 6px;
+			border-top: 1px solid #3d3d3d;
+			text-align: center;
+		}
+		.support a {
+			color: #ffc439;
+			text-decoration: none;
+			font-size: 11.5px;
+		}
+		.support a:hover {
+			text-decoration: underline;
+		}
+	</style>
+</head>
+<body>
+
+	<div class="row">
+		<label>Text to type</label>
+		<div class="field">
+			<textarea id="text" placeholder="e.g. /e carry"></textarea>
+		</div>
+	</div>
+
+	<div class="checkbox-row">
+		<input type="checkbox" id="pressEnter" />
+		<label for="pressEnter">Press Enter after typing</label>
+	</div>
+
+	<div class="checkbox-row">
+		<input type="checkbox" id="useClipboard" />
+		<label for="useClipboard">Use clipboard paste (recommended, more reliable)</label>
+	</div>
+
+	<div class="row">
+		<label>Key before typing</label>
+		<div class="field">
+			<input type="text" id="preKey" placeholder="optional, e.g. T (leave empty to skip)" />
+		</div>
+	</div>
+
+	<div class="two-col">
+		<div class="row">
+			<label>Delay after key</label>
+			<div class="field">
+				<input type="number" id="delayBeforeTyping" min="0" max="5000" step="10" />
+			</div>
+		</div>
+		<div class="row">
+			<label>Delay per char</label>
+			<div class="field">
+				<input type="number" id="delayPerChar" min="0" max="500" step="5" />
+			</div>
+		</div>
+	</div>
+
+	<div class="status" id="status"></div>
+
+	<div class="hint">
+		Clipboard paste (Ctrl+V) types the whole text in one shot - much more reliable than simulated keystrokes, which can drop or duplicate characters under load. "Delay per char" only applies when clipboard paste is off. Everything runs as a single action, in order: optional key press → delay → text → optional Enter.
+	</div>
+
+	<div class="support">
+		<a href="https://paypal.me/TylerDurden67" id="donateLink">☕ If you like it, buy me a coffee</a>
+	</div>
+
+<script>
+let websocket = null;
+let uuid = null;
+let actionInfo = null;
+let settings = {};
+
+const DEFAULTS = {
+	text: "",
+	pressEnter: false,
+	preKey: "",
+	delayBeforeTyping: 300,
+	delayPerChar: 15,
+	useClipboard: true
+};
+
+const el = {
+	text: document.getElementById("text"),
+	pressEnter: document.getElementById("pressEnter"),
+	preKey: document.getElementById("preKey"),
+	delayBeforeTyping: document.getElementById("delayBeforeTyping"),
+	delayPerChar: document.getElementById("delayPerChar"),
+	useClipboard: document.getElementById("useClipboard"),
+	status: document.getElementById("status")
+};
+
+function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
+	uuid = inUUID;
+	actionInfo = JSON.parse(inActionInfo);
+	settings = Object.assign({}, DEFAULTS, actionInfo.payload.settings || {});
+
+	websocket = new WebSocket("ws://127.0.0.1:" + inPort);
+
+	websocket.onopen = () => {
+		websocket.send(JSON.stringify({ event: inRegisterEvent, uuid: inUUID }));
+		applySettingsToUI();
+	};
+
+	websocket.onmessage = (evt) => {
+		let msg;
+		try {
+			msg = JSON.parse(evt.data);
+		} catch (e) {
+			return;
+		}
+		if (msg.event === "sendToPropertyInspector" && msg.payload) {
+			handlePluginMessage(msg.payload);
+		}
+	};
+}
+
+function handlePluginMessage(payload) {
+	if (payload.command === "currentSettings") {
+		settings = Object.assign({}, DEFAULTS, payload.settings || {});
+		applySettingsToUI();
+	}
+}
+
+function applySettingsToUI() {
+	el.text.value = settings.text || "";
+	el.pressEnter.checked = !!settings.pressEnter;
+	el.preKey.value = settings.preKey || "";
+	el.delayBeforeTyping.value = settings.delayBeforeTyping ?? DEFAULTS.delayBeforeTyping;
+	el.delayPerChar.value = settings.delayPerChar ?? DEFAULTS.delayPerChar;
+	el.useClipboard.checked = settings.useClipboard !== false;
+}
+
+function saveSettings() {
+	websocket.send(JSON.stringify({
+		event: "setSettings",
+		context: uuid,
+		payload: settings
+	}));
+}
+
+function setStatus(text, cls) {
+	el.status.textContent = text;
+	el.status.className = "status" + (cls ? " " + cls : "");
+}
+
+el.text.addEventListener("change", () => {
+	settings.text = el.text.value;
+	saveSettings();
+});
+
+el.pressEnter.addEventListener("change", () => {
+	settings.pressEnter = el.pressEnter.checked;
+	saveSettings();
+});
+
+el.useClipboard.addEventListener("change", () => {
+	settings.useClipboard = el.useClipboard.checked;
+	saveSettings();
+});
+
+el.preKey.addEventListener("change", () => {
+	settings.preKey = el.preKey.value;
+	saveSettings();
+});
+
+el.delayBeforeTyping.addEventListener("change", () => {
+	settings.delayBeforeTyping = parseInt(el.delayBeforeTyping.value, 10) || 0;
+	saveSettings();
+});
+
+el.delayPerChar.addEventListener("change", () => {
+	settings.delayPerChar = parseInt(el.delayPerChar.value, 10) || 0;
+	saveSettings();
+});
+
+document.getElementById("donateLink").addEventListener("click", (evt) => {
+	evt.preventDefault();
+	websocket.send(JSON.stringify({
+		event: "sendToPlugin",
+		context: uuid,
+		payload: { command: "openUrl", url: "https://paypal.me/TylerDurden67" }
+	}));
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+	"name": "com.tylerdurden67.texttyper",
+	"version": "0.0.0.1",
+	"description": "Node.js backend for the OpenDeck Text Typer plugin",
+	"main": "bin/plugin.js",
+	"dependencies": {
+		"ws": "^8.18.0"
+	}
+}
